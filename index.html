@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shelf Load Calculator</title>
+
+<style>
+  body {
+    font-family: Arial;
+    margin:0;
+    padding:20px;
+    background:#f5f6fa;
+  }
+
+  .header {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:15px;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+  }
+
+  .header img {
+    height:50px;
+  }
+
+  .divider {
+    width:1px;
+    height:40px;
+    background:#ccc;
+  }
+
+  .card {
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    max-width:500px;
+    margin:auto;
+  }
+
+  .row { margin-bottom:25px; }
+
+  label {
+    font-weight:bold;
+    font-size:16px;
+    margin-bottom:8px;
+    display:block;
+  }
+
+  input[type=range] {
+    width:100%;
+    height:28px;
+  }
+
+  input[type=text] {
+    width:100%;
+    padding:10px;
+    font-size:16px;
+    margin-top:8px;
+    border-radius:6px;
+    border:1px solid #ccc;
+  }
+
+  select {
+    padding:10px;
+    font-size:16px;
+    width:100%;
+    border-radius:6px;
+  }
+
+  .output {
+    margin-top:20px;
+    font-size:26px;
+    font-weight:bold;
+    text-align:center;
+  }
+
+  .status {
+    margin-top:15px;
+    padding:16px;
+    border-radius:8px;
+    font-weight:bold;
+    text-align:center;
+    font-size:18px;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- ✅ ✅ FIXED LOGOS -->
+<div class="header">
+  <img src="premier.png" alt="PremierGarage">
+  <div class="divider"></div>
+  <img src="closet.png" alt="The Tailored Closet">
+</div>
+
+<div class="card">
+
+  <div class="row">
+    <label>Thickness</label>
+    <select id="thickness">
+      <option value="0.75">3/4"</option>
+      <option value="1">1"</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label>Depth (inches)</label>
+    <input type="range" id="depthSlider" min="8" max="24" step="0.125" value="12">
+    <input type="text" id="depthText" value="12">
+  </div>
+
+  <div class="row">
+    <label>Width (inches)</label>
+    <input type="range" id="spanSlider" min="12" max="48" step="0.125" value="36">
+    <input type="text" id="spanText" value="36">
+  </div>
+
+  <div class="output">
+    Max Load: <span id="load">--</span> lbs
+  </div>
+
+  <div id="statusBox" class="status">
+    Status: --
+  </div>
+
+</div>
+
+<script>
+
+const table = {
+  "0.75": {
+    24:{8:72,12:110,16:147,20:185,24:222},
+    36:{8:22,12:33,16:44,24:66},
+    40:{8:15,12:22,16:30,24:46},
+    48:{8:9,12:13,16:18,24:26}
+  },
+  "1": {
+    24:{8:198,12:297,16:400,20:500,24:600},
+    36:{8:60,12:88,16:116,24:180},
+    40:{8:42,12:64,16:86,24:128},
+    48:{8:24,12:35,16:50,24:73}
+  }
+};
+
+function parseFraction(v){
+  v=v.trim();
+  if(v.includes(" ")){
+    let[w,f]=v.split(" ");
+    let[n,d]=f.split("/");
+    return parseFloat(w)+(n/d);
+  }
+  if(v.includes("/")){
+    let[n,d]=v.split("/");
+    return n/d;
+  }
+  return parseFloat(v);
+}
+
+function lerp(x,x1,x2,y1,y2){
+  if(x1===x2) return y1;
+  return y1+(x-x1)*(y2-y1)/(x2-x1);
+}
+
+function getBounds(val,keys){
+  keys.sort((a,b)=>a-b);
+  let l=keys[0],u=keys[keys.length-1];
+  for(let i=0;i<keys.length;i++){
+    if(keys[i]<=val) l=keys[i];
+    if(keys[i]>=val){u=keys[i];break;}
+  }
+  return[l,u];
+}
+
+// ✅ Table (24–48)
+function lookupTableLoad(t,d,s){
+  const data=table[t];
+  const spans=Object.keys(data).map(Number);
+  const[s1,s2]=getBounds(s,spans);
+
+  function depthCalc(sp){
+    const depths=Object.keys(data[sp]).map(Number);
+    const[d1,d2]=getBounds(d,depths);
+    return lerp(d,d1,d2,data[sp][d1],data[sp][d2]);
+  }
+
+  return lerp(s,s1,s2,depthCalc(s1),depthCalc(s2));
+}
+
+// ✅ Curve (12–24)
+function extrapolateBelow24(t,d,s){
+  const base=lookupTableLoad(t,d,24);
+  return base * Math.pow(24/s,3);
+}
+
+// ✅ Master
+function getLoad(t,d,s){
+  return s < 24 ? extrapolateBelow24(t,d,s) : lookupTableLoad(t,d,s);
+}
+
+// Sync
+function syncSlider(slider,text){
+  slider.addEventListener("input",()=>{
+    text.value=slider.value;
+    calculate();
+  });
+  text.addEventListener("change",()=>{
+    let val=parseFraction(text.value);
+    if(!isNaN(val)) slider.value=val;
+    calculate();
+  });
+}
+
+const depthSliderEl=document.getElementById("depthSlider");
+const depthTextEl=document.getElementById("depthText");
+const spanSliderEl=document.getElementById("spanSlider");
+const spanTextEl=document.getElementById("spanText");
+const statusBox=document.getElementById("statusBox");
+
+function calculate(){
+
+  const t=document.getElementById("thickness").value;
+  const d=parseFraction(depthTextEl.value);
+  const s=parseFraction(spanTextEl.value);
+
+  let load=getLoad(t,d,s);
+  let rounded=Math.round(load);
+
+  document.getElementById("load").innerText=rounded;
+
+  let status="",bg="",txt="white";
+
+  // Base
+  if(rounded>=150){
+    status="Very Strong"; bg="#1e8449";
+  }
+  else if(rounded>=80){
+    status="Good"; bg="#28b463";
+  }
+  else if(rounded>=40){
+    status="Caution (Sag Likely)"; bg="#f39c12"; txt="black";
+  }
+  else{
+    status="High Deflection Risk (Not Recommended)"; bg="#c0392b";
+  }
+
+  // ✅ 14" rule (correct)
+  if (d >= 13.75 && d <= 14.25) {
+
+    if (s < 36.25 && status === "High Deflection Risk (Not Recommended)") {
+      status = "Caution (Sag Likely)";
+      bg = "#f39c12";
+      txt = "black";
+    }
+
+    if (s >= 36.25) {
+      status = "High Deflection Risk (Not Recommended)";
+      bg = "#c0392b";
+      txt = "white";
+    }
+  }
+
+  statusBox.innerText="Status: "+status;
+  statusBox.style.background=bg;
+  statusBox.style.color=txt;
+}
+
+syncSlider(depthSliderEl,depthTextEl);
+syncSlider(spanSliderEl,spanTextEl);
+document.getElementById("thickness").addEventListener("change",calculate);
+
+calculate();
+
+</script>
+
+</body>
+</html>
