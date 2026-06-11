@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Shelf Load Calculator</title>
 
+<!-- ✅ GOOGLE ANALYTICS -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NQC2TD0PSW"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-NQC2TD0PSW');
+</script>
+
 <style>
 
 body {
@@ -26,18 +35,17 @@ body {
 .logo-wrap img {
   max-height:50px;
   max-width:150px;
-  width:auto;
-  height:auto;
   object-fit:contain;
 }
 
+/* divider */
 .divider {
   width:2px;
   height:45px;
   background:#ddd;
 }
 
-/* ✅ TITLE */
+/* title */
 .title {
   text-align:center;
   font-size:22px;
@@ -64,7 +72,6 @@ label {
   display:block;
 }
 
-/* ✅ MOBILE FRIENDLY INPUTS */
 input[type=range] {
   width:100%;
   height:28px;
@@ -86,7 +93,6 @@ select {
   border-radius:6px;
 }
 
-/* ✅ OUTPUT */
 .output {
   margin-top:20px;
   font-size:26px;
@@ -108,17 +114,19 @@ select {
 
 <body>
 
-<!-- ✅ ✅ CLEAN HEADER -->
+<!-- ✅ CLEAN HEADER -->
 <div class="header">
+
   <div class="logo-wrap">
-    <img src="premier.png" alt="PremierGarage Logo">
+    <img src="premier.png" alt="PremierGarage">
   </div>
 
   <div class="divider"></div>
 
   <div class="logo-wrap">
-    <img src="closet.png" alt="Tailored Closet Logo">
+    <img src="closet.png" alt="Tailored Closet">
   </div>
+
 </div>
 
 <h1 class="title">Shelf Load Calculator</h1>
@@ -202,7 +210,7 @@ function getBounds(val,keys){
   return[l,u];
 }
 
-// ✅ Table interpolation (24–48)
+// ✅ TABLE (24–48)
 function lookupTableLoad(t,d,s){
   const data=table[t];
   const spans=Object.keys(data).map(Number);
@@ -217,13 +225,12 @@ function lookupTableLoad(t,d,s){
   return lerp(s,s1,s2,depthCalc(s1),depthCalc(s2));
 }
 
-// ✅ Physics curve (12–24)
+// ✅ CURVE (12–24)
 function extrapolateBelow24(t,d,s){
   const base=lookupTableLoad(t,d,24);
   return base * Math.pow(24/s,3);
 }
 
-// ✅ Master
 function getLoad(t,d,s){
   return s < 24 ? extrapolateBelow24(t,d,s) : lookupTableLoad(t,d,s);
 }
@@ -248,8 +255,15 @@ const spanSliderEl=document.getElementById("spanSlider");
 const spanTextEl=document.getElementById("spanText");
 const statusBox=document.getElementById("statusBox");
 
-// ✅ CALCULATE
 function calculate(){
+
+  // ✅ TRACK USAGE EVENT
+  if (typeof gtag === "function") {
+    gtag('event', 'calculate_used', {
+      event_category: 'Shelf Calculator',
+      event_label: 'Calculation Run'
+    });
+  }
 
   const t=document.getElementById("thickness").value;
   const d=parseFraction(depthTextEl.value);
@@ -275,7 +289,7 @@ function calculate(){
     status="High Deflection Risk (Not Recommended)"; bg="#c0392b";
   }
 
-  // ✅ 14" rule
+  // ✅ 14" RULE
   if (d >= 13.75 && d <= 14.25) {
 
     if (s < 36.25 && status === "High Deflection Risk (Not Recommended)") {
